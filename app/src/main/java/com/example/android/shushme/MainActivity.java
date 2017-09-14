@@ -15,6 +15,9 @@ package com.example.android.shushme;
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import android.content.SharedPreferences;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 import android.database.Cursor;
 import android.net.Uri;
 import com.google.android.gms.common.api.PendingResult;
@@ -63,7 +66,8 @@ public class MainActivity extends AppCompatActivity implements
     private PlaceListAdapter mAdapter;
     private RecyclerView mRecyclerView;
     private GoogleApiClient mClient;
-
+    private boolean mIsEnabled;
+    private Geofencing mGeofencing;
 
     /**
      * Called when the activity is starting
@@ -81,6 +85,22 @@ public class MainActivity extends AppCompatActivity implements
         mAdapter = new PlaceListAdapter(this, null);
         mRecyclerView.setAdapter(mAdapter);
 
+        Switch onOffSwitch = (Switch) findViewById(R.id.enable_switch);
+                mIsEnabled = getPreferences(MODE_PRIVATE).getBoolean(getString(R.string.setting_enabled), false);
+                onOffSwitch.setChecked(mIsEnabled);
+                onOffSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+               @Override
+               public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
+                editor.putBoolean(getString(R.string.setting_enabled), isChecked);
+                mIsEnabled = isChecked;
+               editor.commit();
+               if (isChecked) mGeofencing.registerAllGeofences();
+                else mGeofencing.unRegisterAllGeofences();
+                }
+
+                });
+
         // TODO (4) Create a GoogleApiClient with the LocationServices API and GEO_DATA_API
         // Build up the LocationServices API client
         // Uses the addApi method to request the LocationServices API
@@ -91,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements
                                 .addApi(Places.GEO_DATA_API)
                                 .enableAutoManage(this, this)
                                 .build();
-
+                                mGeofencing = new Geofencing(this, mClient);
                     }
 
                 /***
@@ -126,7 +146,8 @@ public class MainActivity extends AppCompatActivity implements
                         @Override
                         public void onResult(@NonNull PlaceBuffer places) {
                                 mAdapter.swapPlaces(places);
-
+                            mGeofencing.updateGeofencesList(places);
+                            if (mIsEnabled) mGeofencing.registerAllGeofences();
                                    }
                    });
            }
@@ -200,7 +221,7 @@ public class MainActivity extends AppCompatActivity implements
                }
         }
 
-                public void onLocationPermissionClicked(View view) {
+    public void onLocationPermissionClicked(View view) {
             ActivityCompat.requestPermissions(MainActivity.this,
                             new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
                             PERMISSIONS_REQUEST_FINE_LOCATION);
