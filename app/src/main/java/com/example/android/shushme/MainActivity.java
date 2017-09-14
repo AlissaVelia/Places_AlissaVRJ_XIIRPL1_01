@@ -15,7 +15,11 @@ package com.example.android.shushme;
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
+import android.database.Cursor;
+import android.net.Uri;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.location.places.PlaceBuffer;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -41,9 +45,12 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlacePicker;
+import java.util.ArrayList;
+import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements ConnectionCallbacks, OnConnectionFailedListener
-{
+public class MainActivity extends AppCompatActivity implements
+        ConnectionCallbacks,
+        OnConnectionFailedListener {
 
 
 // Constants
@@ -51,9 +58,12 @@ public class MainActivity extends AppCompatActivity implements ConnectionCallbac
     private static final int PERMISSIONS_REQUEST_FINE_LOCATION = 111;
     private static final int PLACE_PICKER_REQUEST = 1;
 
+
     // Member variables
     private PlaceListAdapter mAdapter;
     private RecyclerView mRecyclerView;
+    private GoogleApiClient mClient;
+
 
     /**
      * Called when the activity is starting
@@ -68,14 +78,14 @@ public class MainActivity extends AppCompatActivity implements ConnectionCallbac
         // Set up the recycler view
         mRecyclerView = (RecyclerView) findViewById(R.id.places_list_recycler_view);
         mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        mAdapter = new PlaceListAdapter(this);
+        mAdapter = new PlaceListAdapter(this, null);
         mRecyclerView.setAdapter(mAdapter);
 
         // TODO (4) Create a GoogleApiClient with the LocationServices API and GEO_DATA_API
         // Build up the LocationServices API client
         // Uses the addApi method to request the LocationServices API
         // Also uses enableAutoManage to automatically when to connect/suspend the client
-                                GoogleApiClient client = new GoogleApiClient.Builder(this)
+                                 mClient = new GoogleApiClient.Builder(this)
                                .addConnectionCallbacks(this)
                                .addOnConnectionFailedListener(this).addApi(LocationServices.API)
                                 .addApi(Places.GEO_DATA_API)
@@ -91,10 +101,50 @@ public class MainActivity extends AppCompatActivity implements ConnectionCallbac
      +     */
                 @Override
         public void onConnected(@Nullable Bundle connectionHint) {
+                    refreshPlacesData();
             Log.i(TAG, "API Client Connection Successful!");
         }
 
-                /***
+    private void refreshPlacesData()
+    {
+        Uri uri = PlaceContract.PlaceEntry.CONTENT_URI;
+               Cursor data = getContentResolver().query(
+                            uri,
+                            null,
+                            null,
+                            null,
+                            null);
+
+                       if (data == null || data.getCount() == 0) return;
+                List<String> guids = new ArrayList<String>();
+                while (data.moveToNext()) {
+                    guids.add(data.getString(data.getColumnIndex(PlaceContract.PlaceEntry.COLUMN_PLACE_ID)));
+                }
+                PendingResult<PlaceBuffer> placeResult = Places.GeoDataApi.getPlaceById(mClient,
+                                guids.toArray(new String[guids.size()]));
+                placeResult.setResultCallback(new ResultCallback<PlaceBuffer>() {
+                        @Override
+                        public void onResult(@NonNull PlaceBuffer places) {
+                                mAdapter.swapPlaces(places);
+
+                                   }
+                   });
+           }
+
+    /***
+     * Button Click event handler to handle clicking the "Add new location" Button
+     *
+     @@ -178,6 +202,9 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+     ContentValues contentValues = new ContentValues();
+     contentValues.put(PlaceContract.PlaceEntry.COLUMN_PLACE_ID, placeID);
+     getContentResolver().insert(PlaceContract.PlaceEntry.CONTENT_URI, contentValues);
+     +
+     +            // Get live data information
+     +            refreshPlacesData();
+     }
+    }
+
+    /***
           * Called when the Google API Client is suspended
           *
           * @param cause cause The reason for the disconnection. Defined by constants CAUSE_*.
