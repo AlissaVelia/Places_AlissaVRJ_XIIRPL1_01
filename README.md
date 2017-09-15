@@ -1,9 +1,9 @@
 # Lesson 5 : Places
-Google Places API demo app
 
-# ALISSA VELIA ROYHATUL JANNAH
-# XII RPL 01
-# 01
+
+## Nama  : Alissa Velia Royhatul Jannah
+## Kelas : XII RPL 01
+## Absen : 01
 
 ## Screenshots
 
